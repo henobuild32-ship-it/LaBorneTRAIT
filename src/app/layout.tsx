@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "LaBorneTRAIT – Gestion scolaire",
-  description: "La plateforme de gestion scolaire LaBorneTRAIT pour les établissements de La Borne.",
+  description: "L'application de gestion scolaire de La Borne : élèves, enseignants, notes, présences et bulletins.",
   keywords: ["LaBorneTRAIT", "école", "gestion scolaire"],
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   openGraph: {

@@ -8,7 +8,6 @@ import PWAInstallDialog from './pwa-install-dialog';
 import type { UserRole, PageView } from '@/lib/types';
 import { useTheme } from 'next-themes';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +39,6 @@ import {
   Calendar,
   BarChart3,
   Bot,
-  MessageCircle,
   Sun,
   Moon,
   CheckCircle2,
@@ -52,7 +50,6 @@ import {
   ArrowRight,
   ShieldCheck,
   Laptop,
-  Star,
 } from 'lucide-react';
 
 const roleDashboardMap: Record<UserRole, PageView> = {
@@ -103,14 +100,6 @@ const roleColors: Record<string, { bg: string; border: string; badge: string; gr
   },
 };
 
-type PublicReview = {
-  id: string;
-  author: string;
-  school: string;
-  message: string;
-  rating: number;
-};
-
 function PasswordStrengthIndicator({ password }: { password: string }) {
   if (!password) return null;
 
@@ -151,68 +140,10 @@ export default function AuthPage() {
   const { isInstallable, installPWA } = usePWAInstall();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [reviews, setReviews] = useState<PublicReview[]>([]);
-  const [reviewAuthor, setReviewAuthor] = useState('');
-  const [reviewSchool, setReviewSchool] = useState('');
-  const [reviewMessage, setReviewMessage] = useState('');
-  const [reviewRating, setReviewRating] = useState(5);
-  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    fetch('/api/reviews')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Impossible de charger les avis');
-        return response.json() as Promise<{ reviews: PublicReview[] }>;
-      })
-      .then((data) => setReviews(data.reviews))
-      .catch(() => {
-        // Reviews are promotional content; a failure must not block authentication.
-      });
-  }, []);
-
-  const submitReview = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmittingReview(true);
-    try {
-      const storageKey = 'LaBorneTRAIT-review-visitor-id';
-      let visitorId = localStorage.getItem(storageKey);
-      if (!visitorId) {
-        visitorId = crypto.randomUUID();
-        localStorage.setItem(storageKey, visitorId);
-      }
-      const response = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          author: reviewAuthor,
-          school: reviewSchool,
-          message: reviewMessage,
-          rating: reviewRating,
-          visitorId,
-        }),
-      });
-      const data = await response.json() as { review?: PublicReview; error?: string };
-      if (!response.ok || !data.review) throw new Error(data.error || 'Impossible de publier votre avis.');
-      setReviews((current) => [data.review!, ...current].slice(0, 12));
-      setReviewAuthor('');
-      setReviewSchool('');
-      setReviewMessage('');
-      setReviewRating(5);
-      toast({ title: 'Merci pour votre avis', description: 'Votre témoignage est maintenant visible.' });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Avis non publié',
-        description: error instanceof Error ? error.message : 'Veuillez réessayer plus tard.',
-      });
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
 
   useEffect(() => {
     if (user) {
@@ -250,12 +181,10 @@ export default function AuthPage() {
   const [forgotResendIn, setForgotResendIn] = useState(0);
 
   // Register school state
-  const [regSchoolName, setRegSchoolName] = useState('');
   const [regAdminName, setRegAdminName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [regSchoolType, setRegSchoolType] = useState('Complexe Scolaire');
   const [regAdminGender, setRegAdminGender] = useState<'M' | 'F' | ''>('');
   const [regAdminBirthDate, setRegAdminBirthDate] = useState('');
   const [regLoading, setRegLoading] = useState(false);
@@ -518,7 +447,7 @@ export default function AuthPage() {
   const handleCreateSchool = async (e: React.FormEvent) => {
     e.preventDefault();
     if (regLoading) return;
-    if (!regAdminName.trim() || !regSchoolName.trim() || !regEmail.trim() || !regPassword || !regConfirmPassword) {
+    if (!regAdminName.trim() || !regEmail.trim() || !regPassword || !regConfirmPassword) {
       toast({ title: 'Champs obligatoires', description: 'Veuillez remplir tous les champs du formulaire.', variant: 'destructive' });
       return;
     }
@@ -543,28 +472,27 @@ export default function AuthPage() {
         body: JSON.stringify({
           mode: 'create-school',
           fullName: regAdminName.trim(),
-          schoolName: `${regSchoolName.trim()} (${regSchoolType})`,
           email: regEmail.trim(),
           password: regPassword,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        toast({ title: "Erreur de création d'école", description: data.error || "Impossible de créer l'établissement.", variant: 'destructive' });
+        toast({ title: "Erreur de configuration de La Borne", description: data.error || "Impossible de configurer l'espace de La Borne.", variant: 'destructive' });
         return;
       }
       setCreatedInviteCode(data.inviteCode);
       setUser(data.user);
       setCurrentPage('admin-dashboard');
       toast({
-        title: 'Établissement créé avec succès !',
-        description: `Code d'invitation École : ${data.inviteCode}`,
+        title: 'La Borne est configurée !',
+        description: `Code d'accès La Borne : ${data.inviteCode}`,
         duration: 8000,
       });
     } catch {
       toast({
         title: 'Erreur',
-        description: "Une erreur réseau est survenue lors de la création de l'école.",
+        description: "Une erreur réseau est survenue lors de la configuration de La Borne.",
         variant: 'destructive',
       });
     } finally {
@@ -787,21 +715,21 @@ export default function AuthPage() {
               {/* Badge Pills */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-bold tracking-wide animate-fade-in">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Plateforme de Gestion Éducative Nouvelle Génération</span>
+                <span>Application scolaire officielle de La Borne</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               </div>
 
               {/* Main Headline */}
               <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] max-w-4xl mx-auto">
-                Pilotez votre établissement avec{' '}
+                L'école La Borne,{' '}
                 <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  élégance & intelligence
+                  connectée et organisée
                 </span>
               </h1>
 
               {/* Sub-headline */}
               <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto font-normal leading-relaxed">
-                Une suite complète pour piloter les élèves, enseignants, notes, présences, emplois du temps et finances depuis un seul espace.
+                L'application de gestion scolaire de La Borne : élèves, enseignants, notes, présences, emplois du temps et finances réunis dans un seul espace.
               </p>
 
               {/* CTA Buttons */}
@@ -811,7 +739,7 @@ export default function AuthPage() {
                   size="lg"
                   className="w-full sm:w-auto h-13 px-8 rounded-full text-base font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:opacity-95 text-white shadow-xl shadow-blue-600/25 transition-all transform hover:-translate-y-0.5"
                 >
-                  Rejoindre une école
+                  Rejoindre La Borne
                   <ChevronRight className="w-5 h-5 ml-1.5" />
                 </Button>
                 <Button
@@ -821,7 +749,7 @@ export default function AuthPage() {
                   className="w-full sm:w-auto h-13 px-8 rounded-full text-base font-bold border-2 hover:bg-muted/60 transition-all"
                 >
                   <School className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
-                  Créer un établissement
+                  Configurer l'accès Direction
                 </Button>
                 <Button
                   onClick={() => setView('login')}
@@ -840,7 +768,7 @@ export default function AuthPage() {
               <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs font-semibold text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Données Sécurisées RGPD</span>
+                  <span>Espace sécurisé de La Borne</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-blue-500" />
@@ -858,7 +786,7 @@ export default function AuthPage() {
           <section className="px-4 sm:px-8 py-12 lg:py-16 bg-muted/30 border-b border-border/40">
             <div className="max-w-6xl mx-auto space-y-8">
               <div className="text-center space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Accès par Profil & Rôle</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Un espace pour toute la communauté de La Borne</h2>
                 <p className="text-sm text-muted-foreground max-w-lg mx-auto">
                   Chaque acteur de la communauté scolaire dispose d'une interface optimisée selon ses besoins.
                 </p>
@@ -895,7 +823,7 @@ export default function AuthPage() {
                         </p>
                       </div>
                       <div className="flex items-center text-xs font-bold text-primary group-hover:translate-x-1 transition-transform">
-                        <span>Créer un compte</span>
+                        <span>Créer un compte à La Borne</span>
                         <ArrowRight className="w-3.5 h-3.5 ml-1" />
                       </div>
                     </div>
@@ -960,7 +888,7 @@ export default function AuthPage() {
                 {
                   icon: BellRing,
                   title: 'Centre de Notifications',
-                  desc: 'Annonces d’établissement, alertes urgentes et messagerie directe interne.',
+                  desc: 'Annonces de La Borne, alertes urgentes et messagerie interne.',
                   color: 'text-rose-500 bg-rose-500/10',
                 },
                 {
@@ -990,66 +918,21 @@ export default function AuthPage() {
             </div>
           </section>
 
-          <section className="border-t border-border/40 bg-muted/30 px-4 py-16 sm:px-8">
-            <div className="mx-auto max-w-6xl space-y-8">
-              <div className="mx-auto max-w-2xl text-center space-y-3">
-                <Badge variant="outline" className="gap-1.5 border-amber-500/30 px-3 py-1 text-amber-700 dark:text-amber-300">
-                  <Star className="h-3.5 w-3.5 fill-current" />
-                  Avis vérifiés
-                </Badge>
-                <h2 className="text-3xl font-extrabold tracking-tight">Les retours des écoles comptent</h2>
-                <p className="text-muted-foreground">
-                  LaBorneTRAIT ne publie pas de faux avis. Les témoignages apparaissent ici après validation avec l’établissement concerné.
-                </p>
-              </div>
-              {reviews.length > 0 && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {reviews.slice(0, 3).map((review) => (
-                    <article key={review.id} className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-                      <div className="mb-4 flex gap-1 text-amber-500" aria-label={`${review.rating} étoiles sur 5`}>
-                        {Array.from({ length: 5 }).map((_, index) => <Star key={index} className={`h-4 w-4 ${index < review.rating ? 'fill-current' : 'text-muted'}`} />)}
-                      </div>
-                      <p className="text-sm leading-relaxed text-muted-foreground">&ldquo;{review.message}&rdquo;</p>
-                      <p className="mt-4 text-sm font-bold">{review.author}</p>
-                      {review.school && <p className="text-xs text-muted-foreground">{review.school}</p>}
-                    </article>
-                  ))}
-                </div>
-              )}
-              <form onSubmit={submitReview} className="mx-auto grid max-w-2xl gap-3 rounded-2xl border border-border/60 bg-card p-5 text-left shadow-sm sm:grid-cols-2">
-                <Input value={reviewAuthor} onChange={(event) => setReviewAuthor(event.target.value)} placeholder="Votre nom" minLength={2} maxLength={80} required />
-                <Input value={reviewSchool} onChange={(event) => setReviewSchool(event.target.value)} placeholder="Établissement (facultatif)" maxLength={100} />
-                <div className="flex items-center gap-1 sm:col-span-2" aria-label="Votre note">
-                  {Array.from({ length: 5 }).map((_, index) => (
-                    <button key={index} type="button" onClick={() => setReviewRating(index + 1)} className="rounded p-1 text-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${index + 1} étoiles`}>
-                      <Star className={`h-5 w-5 ${index < reviewRating ? 'fill-current' : ''}`} />
-                    </button>
-                  ))}
-                </div>
-                <Textarea value={reviewMessage} onChange={(event) => setReviewMessage(event.target.value)} placeholder="Partagez votre expérience avec LaBorneTRAIT (20 caractères minimum)." minLength={20} maxLength={800} required className="min-h-24 sm:col-span-2" />
-                <Button type="submit" disabled={submittingReview} className="sm:col-span-2">
-                  {submittingReview ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageCircle className="mr-2 h-4 w-4" />}
-                  Publier mon avis
-                </Button>
-              </form>
-            </div>
-          </section>
-
           {/* BOTTOM CTA */}
           <section className="px-4 sm:px-8 py-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 text-white text-center">
             <div className="max-w-4xl mx-auto space-y-6">
-              <h2 className="text-3xl sm:text-5xl font-black tracking-tight">Prêt à moderniser votre école ?</h2>
+              <h2 className="text-3xl sm:text-5xl font-black tracking-tight">Toute la vie scolaire de La Borne, dans un seul espace.</h2>
               <p className="text-blue-100 text-base sm:text-lg max-w-xl mx-auto">
-                Rejoignez des dizaines d’établissements qui font confiance à LaBorneTRAIT pour leur gestion quotidienne.
+                LaBorneTRAIT accompagne les élèves, les enseignants, les parents et la direction de La Borne.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                 <Button
-                  onClick={() => setView('register-school')}
+                  onClick={() => setView('register-user')}
                   size="lg"
                   className="w-full sm:w-auto h-13 px-8 rounded-full font-bold bg-white text-blue-700 hover:bg-blue-50 shadow-lg"
                 >
-                  <Building2 className="w-5 h-5 mr-2" />
-                  Créer mon École Maintenant
+                  <UserCheck className="w-5 h-5 mr-2" />
+                  Accéder à La Borne
                 </Button>
                 <Button
                   onClick={() => setView('login')}
@@ -1067,10 +950,10 @@ export default function AuthPage() {
         {renderFooter()}
         <div className="fixed inset-x-3 bottom-3 z-50 lg:hidden">
           <Button
-            onClick={() => setView('register-school')}
+            onClick={() => setView('register-user')}
             className="h-12 w-full rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-base font-bold text-white shadow-xl shadow-indigo-600/30"
           >
-            Créer mon établissement
+            Accéder à La Borne
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -1517,7 +1400,7 @@ export default function AuthPage() {
               <UserCheck className="w-7 h-7" />
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Inscription LaBorneTRAIT</h1>
-            <p className="text-sm text-muted-foreground">Créez votre établissement ou rejoignez une école</p>
+            <p className="text-sm text-muted-foreground">Créez votre compte pour accéder à l'espace scolaire de La Borne</p>
           </div>
 
           {/* Dual Tabs for Registration */}
@@ -1531,7 +1414,7 @@ export default function AuthPage() {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Rejoindre une École
+              Rejoindre La Borne
             </button>
             <button
               type="button"
@@ -1543,7 +1426,7 @@ export default function AuthPage() {
               }`}
             >
               <School className="w-3.5 h-3.5 inline mr-1 text-indigo-500" />
-              Créer mon École
+              Configurer La Borne
             </button>
           </div>
 
@@ -1556,10 +1439,10 @@ export default function AuthPage() {
                     <CheckCircle2 className="w-6 h-6" />
                   </div>
                   <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
-                    Félicitations ! Votre école est créée.
+                    L'espace scolaire de La Borne est prêt.
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    Partagez ce code d'invitation avec vos enseignants, élèves et parents pour qu'ils s'inscrivent :
+                    Partagez ce code d'accès avec les enseignants, élèves et parents de La Borne :
                   </p>
                   <div className="p-4 rounded-xl bg-card border font-mono text-2xl font-black tracking-widest text-primary flex items-center justify-center gap-3">
                     <span>{createdInviteCode}</span>
@@ -1581,35 +1464,12 @@ export default function AuthPage() {
                 </div>
               ) : (
                 <form onSubmit={handleCreateSchool} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="school-name" className="text-xs font-bold">Nom de l'Établissement</Label>
-                    <Input
-                      id="school-name"
-                      placeholder="Ex: Complexe Scolaire Saint-Joseph"
-                      value={regSchoolName}
-                      onChange={(e) => setRegSchoolName(e.target.value)}
-                      className="h-11 rounded-xl"
-                      required
-                    />
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-center">
+                    <p className="text-xs font-semibold text-muted-foreground">Établissement</p>
+                    <p className="text-lg font-bold text-foreground">La Borne</p>
                   </div>
-
                   <div className="space-y-1.5">
-                    <Label htmlFor="school-type" className="text-xs font-bold">Type de Structure</Label>
-                    <select
-                      id="school-type"
-                      value={regSchoolType}
-                      onChange={(e) => setRegSchoolType(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl border border-input bg-background text-sm font-medium"
-                    >
-                      <option value="Complexe Scolaire">Complexe Scolaire (Maternelle - Secondaire)</option>
-                      <option value="École Primaire / Fondamentale">École Primaire / Fondamentale</option>
-                      <option value="Lycée / Collège">Lycée / Collège</option>
-                      <option value="Institut Supérieur / Université">Institut Supérieur / Université</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="admin-name" className="text-xs font-bold">Nom Complet du Fondateur / Directeur</Label>
+                    <Label htmlFor="admin-name" className="text-xs font-bold">Nom complet du Directeur / Administrateur</Label>
                     <Input
                       id="admin-name"
                       placeholder="Ex: Prof. Marc Kabamba"
@@ -1621,11 +1481,11 @@ export default function AuthPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="reg-email" className="text-xs font-bold">Email de l'Établissement</Label>
+                    <Label htmlFor="reg-email" className="text-xs font-bold">Email du Directeur / Administrateur</Label>
                     <Input
                       id="reg-email"
                       type="email"
-                      placeholder="contact@ecole-exemple.com"
+                      placeholder="direction@la-borne.example"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
                       className="h-11 rounded-xl"
@@ -1689,10 +1549,10 @@ export default function AuthPage() {
                     {regLoading ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Création de l'école...
+                        Configuration de La Borne...
                       </>
                     ) : (
-                      "Créer mon École & Obtenir le Code"
+                      "Configurer La Borne & Obtenir le Code"
                     )}
                   </Button>
                 </form>
@@ -1706,7 +1566,7 @@ export default function AuthPage() {
               {/* Invite code with live verification */}
               <div className="space-y-1.5">
                 <Label htmlFor="join-code" className="text-xs font-bold flex items-center justify-between">
-                  <span>Code École (Fourni par l'établissement)</span>
+                  <span>Code d'accès La Borne</span>
                   {verifyingCode && <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />}
                 </Label>
                 <div className="relative">
@@ -1729,7 +1589,7 @@ export default function AuthPage() {
 
                 {codeVerified && (
                   <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 mt-1">
-                    <Check className="w-3.5 h-3.5" /> Établissement vérifié : {verifiedSchoolName}
+                    <Check className="w-3.5 h-3.5" /> École vérifiée : {verifiedSchoolName}
                   </p>
                 )}
               </div>
@@ -2000,4 +1860,3 @@ export default function AuthPage() {
     </div>
   );
 }
-

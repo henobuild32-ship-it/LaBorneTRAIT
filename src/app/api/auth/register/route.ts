@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/password';
 import { setAuthCookies } from '@/lib/auth/session';
 
+const SCHOOL_NAME = 'La Borne';
+
 const registerSchema = z.object({
   gender: z.enum(['M', 'F'], { error: 'Le sexe est obligatoire (M ou F).' }),
   dateOfBirth: z.coerce.date({ error: 'La date de naissance est obligatoire.' }),
@@ -41,11 +43,11 @@ async function generateUniqueParentCode(): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { mode, schoolName, fullName, email, password, inviteCode, role, classIds, parentCode, gender, dateOfBirth, specialty, phone, qualification } = body;
+    const { mode, fullName, email, password, inviteCode, role, classIds, parentCode, gender, dateOfBirth, specialty, phone, qualification } = body;
 
-    // === MODE: create-school (Admin creates a school) ===
+    // === MODE: create-school (initial La Borne setup) ===
     if (mode === 'create-school') {
-      if (!fullName || !schoolName || !email || !password) {
+      if (!fullName || !email || !password) {
         return NextResponse.json(
           { error: 'Veuillez remplir tous les champs.' },
           { status: 400 }
@@ -59,10 +61,10 @@ export async function POST(request: NextRequest) {
       }
 
       const normalizedEmail = email.trim().toLowerCase();
-      const existingSchool = await db.school.findUnique({ where: { email: normalizedEmail } });
+      const existingSchool = await db.school.findFirst({ select: { id: true } });
       if (existingSchool) {
         return NextResponse.json(
-          { error: 'Une école avec cet email existe déjà.' },
+          { error: 'La Borne est déjà configurée. Connectez-vous ou demandez le code d’accès à la direction.' },
           { status: 409 }
         );
       }
@@ -71,7 +73,8 @@ export async function POST(request: NextRequest) {
 
       const school = await db.school.create({
         data: {
-          name: schoolName,
+          id: 'la-borne',
+          name: SCHOOL_NAME,
           email: normalizedEmail,
           password: await hashPassword(password),
           inviteCode: code,
@@ -186,9 +189,9 @@ export async function POST(request: NextRequest) {
 
       // Find school by invite code
       const school = await db.school.findUnique({ where: { inviteCode: cleanInviteCode } });
-      if (!school) {
+      if (!school || school.name !== SCHOOL_NAME) {
         return NextResponse.json(
-          { error: 'Code école invalide. Vérifiez le code fourni par votre administrateur.' },
+          { error: 'Code d’accès La Borne invalide. Vérifiez le code fourni par la direction.' },
           { status: 404 }
         );
       }
