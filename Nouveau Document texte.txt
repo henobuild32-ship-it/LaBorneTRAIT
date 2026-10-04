@@ -1,0 +1,205 @@
+Je souhaite concevoir un système de cotation et de gestion des notes pour une application éducative nommée GradeUp, destinée au système scolaire de la République Démocratique du Congo.
+
+Voici les spécifications techniques et fonctionnelles détaillées que le système doit respecter. Elles doivent guider l'architecture de la base de données, la logique métier et l'interface d'administration.
+
+1. Principe Fondamental : Une Note n'est pas un Score sur 20
+La plus grande erreur à éviter est de traiter une note comme une simple valeur sur 20. Dans le système congolais, la pondération est intrinsèquement liée au maximum de points de chaque matière.
+
+Une évaluation doit être définie par l'ensemble des attributs suivants :
+
+text
+Matière
++ Niveau / Classe
++ Période (Semestre 1 ou 2)
++ Type d'évaluation (Travaux journaliers, Examen)
++ Points obtenus
++ Points maximum
++ Coefficient (optionnel, à distinguer du maximum)
+Exemple concret :
+
+Matière : Mathématiques
+
+Classe : 4e Humanité
+
+Évaluation : Examen
+
+Points obtenus : 37
+
+Maximum : 50
+
+Résultat : 37/50 = 74 %.
+
+2. Architecture Générale et Cycles
+Le système doit gérer trois cycles distincts, car leurs logiques de notation sont différentes. L'architecture doit refléter cette séparation.
+
+a) Maternelle (Mode Qualitatif et/ou Numérique)
+
+Objectif : Suivi des compétences et appréciations.
+
+Modes supportés :
+
+MODE = QUALITATIF : Gérer des appréciations comme "Acquis", "En cours d'acquisition", "À renforcer" par domaine (Langage, Motricité, etc.).
+
+MODE = NUMÉRIQUE : Possibilité d'utiliser des points si l'école le souhaite.
+
+Règle : La logique numérique ne doit pas être imposée.
+
+b) Éducation de Base (Primaire + CTEB)
+
+Cycle : 1ère à 6ème primaire, puis 7ème CTEB et 8ème CTEB.
+
+Logique : Structure stricte avec des maxima de points variables.
+
+Spécificité : Les matières n'ont pas le même poids. Le système doit gérer un bulletin avec des groupes de matières ayant des maxima différents (ex: 10, 20, 40, 50, 100).
+
+Calcul du total général : (Somme des points obtenus) / (Somme des points maximums de toutes les matières) * 100.
+
+Contre-exemple : Ne pas faire une moyenne naïve des notes sur 20.
+
+c) Humanités (Générales, Techniques, Professionnelles)
+
+Cycle : 4 années (1ère, 2ème, 3ème, 4ème).
+
+Complexité : Pondération la plus importante.
+
+Gestion du semestre :
+
+Semestre 1 : Total = Travaux journaliers + Examen.
+
+Semestre 2 : Total = Travaux journaliers + Examen.
+
+Année : Total annuel = Total S1 + Total S2.
+
+Maxima : Gérer des maxima variables pour chaque matière (ex: 10, 20, 30, 40, 60, 100).
+
+3. Différence Critique : Maximum de Points vs. Coefficient
+Le système doit faire une distinction stricte entre deux types de pondération pour éviter un double comptage.
+
+Pondération par Maximum de Points (Pondération Intrinsèque) :
+
+Une matière avec un maximum de 100 pèse naturellement plus lourd qu'une matière avec un maximum de 20.
+
+Règle : Ne pas appliquer de coefficient supplémentaire à une matière qui a déjà un maximum important si le bulletin ne le spécifie pas.
+
+Coefficient Académique (Explicite) :
+
+L'école peut décider d'ajouter un coefficient (ex: Mathématiques coeff. 3, Français coeff. 2).
+
+Formule : Moyenne pondérée = Σ(note × coefficient) / Σ(coefficients).
+
+Règle : Si un coefficient est utilisé, il s'applique à la note en pourcentage (ou au score), mais ne multiplie pas le maximum de points, sinon la pondération est comptée deux fois.
+
+4. Gestion des Évaluations et Résultats
+Le système doit permettre une hiérarchisation granulaire des résultats, et non un champ unique "note".
+
+Niveaux de stockage des résultats :
+
+Évaluation (Assessment) : Score individuel (ex: Interrogation 1: 8/10, Examen: 15/20).
+
+Résultat Périodique (PeriodResult) : Agrégation des évaluations pour une période (ex: Travaux journaliers: 35/40).
+
+Résultat Semestriel (SemesterResult) : Agrégation des périodes (ex: Total S1: 77/100).
+
+Résultat Annuel (AnnualResult) : Agrégation des semestres (ex: 160/200).
+
+Bulletin (ReportCard) : Résultat final avec le pourcentage.
+
+Exemple de flux :
+
+Travaux journaliers S1 : 35/40
+
+Examen S1 : 42/60
+
+Total S1 : 35 + 42 = 77 / 100 → 77 %.
+
+Total Annuel : 77 (S1) + 83 (S2) = 160 / 200 → 80 %.
+
+5. Classement et Gestion des Égalités
+Classement : Trier les élèves par pourcentage décroissant.
+
+Gestion des égalités (Ex-aequo) :
+
+Si 2 élèves ont 85,40%, ils sont tous deux classés 1er.
+
+L'élève suivant avec 83,20% est classé 3ème.
+
+Affichage : Place : 1 / 42 (sur le bulletin).
+
+6. Décisions Administratives (Passage, Doublement)
+Le système doit permettre de gérer les décisions finales.
+
+Statuts possibles : PASSED, FAILED, RETAKE_REQUIRED (repêchage), PROMOTED, REPEATING.
+
+Règle cruciale : La règle de décision (seuil de passage, conditions de repêchage) ne doit pas être codée en dur. Elle doit être configurable par l'école/la classe/l'année.
+
+7. Architecture de Données et Schéma (Modèle Conceptuel)
+L'architecture doit suivre la hiérarchie suivante et éviter un modèle plat.
+
+text
+Student (Élève)
+    └── Enrollment (Inscription)
+          └── Class (Classe)
+                └── Subject (Matière)
+                      └── AssessmentRule (Règle de cotation : max, coeff, etc.)
+                            └── Assessment (Évaluation spécifique)
+                                  └── Score (Note de l'élève)
+                                        └── PeriodResult (Résultat des travaux journaliers)
+                                              └── SemesterResult (Résultat du semestre)
+                                                    └── AnnualResult (Résultat annuel)
+                                                          └── ReportCard (Bulletin)
+Exemple de structure de données pour une matière :
+
+sql
+SubjectRule
+- subjectId (FK)
+- classId (FK)
+- academicYearId (FK)
+- semester (1 ou 2)
+- maximumPoints (ex: 100)
+- coefficient (ex: 1, 2, 3) [Optionnel, peut être NULL]
+- dailyWorkMaximum (ex: 40)
+- examMaximum (ex: 60)
+- isActive (boolean)
+8. Logique Automatique de l'IA / du Système
+Pour chaque élève, le système doit automatiquement :
+
+Identifier sa classe et son cycle.
+
+Charger les matières de sa classe.
+
+Charger les règles de cotation (maxima, coeff).
+
+Enregistrer les scores des travaux journaliers et des examens.
+
+Calculer le total de chaque période (Score total / Max total).
+
+Calculer le total du semestre.
+
+Calculer le total annuel (S1 + S2).
+
+Calculer le pourcentage final.
+
+Calculer la moyenne selon la règle de l'école.
+
+Calculer le classement (avec gestion des ex-aequo).
+
+Déterminer le statut (Passage/Doublement) selon les règles configurées.
+
+Générer le bulletin.
+
+9. Critères de Configuration (Administration)
+Le système ne doit pas avoir de valeurs "en dur" dans le code. Tous les paramètres suivants doivent être configurables depuis une interface d'administration :
+
+Liste des matières.
+
+Maxima de points par matière et par classe.
+
+Coefficients (si utilisés).
+
+Types d'évaluations (Travaux, Examen).
+
+Règles de passage (seuils de pourcentage, conditions de repêchage).
+
+Structure des semestres.
+
+Cette flexibilité est indispensable pour s'adapter aux évolutions des curricula (comme la réforme des Humanités Pédagogiques Rénovées) et aux spécificités de chaque filière (Générale, Commerciale, Scientifique, Technique, Pédagogique, Professionnelle)
